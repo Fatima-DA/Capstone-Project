@@ -1,0 +1,111 @@
+---
+title: "logistic regression"
+author: "fatima"
+date: "03/07/2020"
+output: html_document
+---
+
+
+
+```{r}
+data.model <- read.csv("C:/Users/fatim/Downloads/capstone initial results/data.for.model.csv")
+str(data.model)
+```
+
+
+
+```{r}
+data.model<-data.model[-1]
+data.model$arrival.year<-as.factor(data.model$arrival.year)
+data.model$is.cancelled <-as.factor(data.model$is.cancelled )
+```
+
+
+## splitting dataset into training and testing
+```{r}
+set.seed(101)
+row.no.train<-sample(1:nrow(data.model),nrow(data.model)*0.8)
+train.hotel<-data.model[row.no.train,]
+test.hotel<-data.model[-row.no.train,]
+```
+## logistic regression without balanacing
+
+```{r}
+glm.model<-glm(is.cancelled ~ .,family="binomial",data=train.hotel)
+summary(glm.model)
+```
+#removing target variable from test data
+```{r}
+test.hotel.new<-test.hotel[-8]
+```
+
+
+## predicting 
+```{r}
+predicted.prob <- predict(glm.model, test.hotel.new, type="response")
+predicted_values<- ifelse(predicted.prob>=0.5, 1, 0)
+
+```
+## confusion matrix and accuracy
+```{r}
+confusion.matrix <- table(actual = test.hotel$is.cancelled, predicted = predicted_values)
+confusion.matrix
+sum(diag(confusion.matrix))/nrow(test.hotel)## this is accuracy
+
+```
+
+## balancing dataset(only training set)
+
+```{r}
+library(ROSE)
+table(train.hotel$is.cancelled)
+prop.table(table(train.hotel$is.cancelled)) ## checking proprotion of levels of is.cancelled
+```
+
+## oversampling 
+
+
+```{r}
+over.data<- ovun.sample(is.cancelled~.,data=train.hotel,method="over",N=40730)$data
+table(over.data$is.cancelled)
+```
+
+## building model
+```{r}
+glm.model.over.balanced<-glm(is.cancelled ~ .,family="binomial",data=over.data)
+summary(glm.model.over.balanced)
+```
+
+
+```{r}
+predicted.prob1 <- predict(glm.model.over.balanced, test.hotel.new, type="response")
+predicted_values1<- ifelse(predicted.prob1>=0.5, 1, 0)
+```
+## accuracy
+```{r}
+confusion.matrix1 <- table(actual = test.hotel$is.cancelled, predicted = predicted_values1)
+sum(diag(confusion.matrix1))/nrow(test.hotel)## this is accuracy
+confusion.matrix1
+```
+
+## undersampling
+```{r}
+under.data<-ovun.sample(is.cancelled~.,data=train.hotel,method="under",N=13304)$data
+table(under.data$is.cancelled)
+
+```
+
+## building model
+```{r}
+glm.model.under.balanced<-glm(is.cancelled ~ .,family="binomial",data=under.data)
+predicted.prob2 <- predict(glm.model.under.balanced, test.hotel.new, type="response")
+predicted_values2<- ifelse(predicted.prob2>=0.5, 1, 0)
+```
+## accuracy
+```{r}
+confusion.matrix2 <- table(actual = test.hotel$is.cancelled, predicted = predicted_values2)
+sum(diag(confusion.matrix2))/nrow(test.hotel)## this is accuracy
+confusion.matrix2
+```
+## Imbalanced dataset-> accuracy is 79.3%
+## After undersampling-> accuracy is 75.4%

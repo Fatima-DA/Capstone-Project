@@ -1,0 +1,149 @@
+---
+title: "Decison Tree"
+author: "fatima"
+date: "05/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+data.model <- read.csv("C:/Users/fatim/Downloads/capstone initial results/data.for.model.csv")
+str(data.model)
+
+```
+
+
+```{r}
+data.model<-data.model[-1]
+data.model$arrival.year<-as.factor(data.model$arrival.year)
+data.model$is.cancelled <-as.factor(data.model$is.cancelled )
+```
+
+## splitting dataset into training and testing
+```{r}
+set.seed(101)
+row.no.train<-sample(1:nrow(data.model),nrow(data.model)*0.8)
+train.hotel<-data.model[row.no.train,]
+test.hotel<-data.model[-row.no.train,]
+```
+## decision tree
+# install packages rpart and rpart.plot
+
+```{r}
+library(rpart)
+library(rpart.plot)
+library(ROSE)
+tree.model1<-rpart(is.cancelled~.,method='class',parms=list(split='information'),data=train.hotel) ## method class for classification tree
+printcp(tree.model1)
+
+```
+
+```{r}
+## growing full tree for this specify cp=-1..might create overfitted but can be pruned later
+
+tree.model2<-rpart(is.cancelled~.,method='class',parms=list(split='information'),data=train.hotel,cp=-1)
+printcp(tree.model2)
+tree.model2$variable.importance
+
+```
+## pruning 
+```{r}
+tree.model3<-rpart(is.cancelled~.,method='class',parms=list(split='information'),data=train.hotel,cp=0.000802)
+
+```
+
+#removing target variable from test data
+```{r}
+test.hotel.new<-test.hotel[-8]
+```
+
+
+## confusion matrix for decsiiion tree
+```{r}
+predicted.tree.model1<-predict(tree.model1,test.hotel.new,type="class")
+predicted.tree.model2<-predict(tree.model2,test.hotel.new,type="class")
+predicted.tree.model3<-predict(tree.model3,test.hotel.new,type="class")
+c.matrix1<-table(test.hotel$is.cancelled,predicted.tree.model1)
+c.matrix2<-table(test.hotel$is.cancelled,predicted.tree.model2)
+c.matrix3<-table(test.hotel$is.cancelled,predicted.tree.model3)
+```
+##accuracy
+
+```{r}
+sum(diag(c.matrix1))/nrow(test.hotel)
+sum(diag(c.matrix2))/nrow(test.hotel)
+sum(diag(c.matrix3))/nrow(test.hotel)
+```
+
+## oversampling only training set
+```{r}
+
+## install.packages("ROSE") for over or undersampling 
+
+over.data<- ovun.sample(is.cancelled~.,data=train.hotel,method="over",N=40730)$data
+table(over.data$is.cancelled)
+```
+
+## undersampling only training
+```{r}
+under.data<-ovun.sample(is.cancelled~.,data=train.hotel,method="under",N=13304)$data
+table(under.data$is.cancelled)
+```
+
+```{r}
+set.seed(123)
+tree.over1<-rpart(is.cancelled~.,method='class',data=over.data,parms=list(split='information'))
+tree.over2<-rpart(is.cancelled~.,method='class',data=over.data,parms=list(split='information'),cp=-1)
+printcp(tree.over2)
+tree.over3<-rpart(is.cancelled~.,method='class',data=over.data,parms=list(split='information'),cp=0.0000655)
+
+```
+
+```{r}
+predicted.tree.over1<-predict(tree.over1,test.hotel.new,type="class")
+predicted.tree.over2<-predict(tree.over2,test.hotel.new,type="class")
+predicted.tree.over3<-predict(tree.over3,test.hotel.new,type="class")
+matrix.over1<-table(test.hotel$is.cancelled,predicted.tree.over1)
+matrix.over2<-table(test.hotel$is.cancelled,predicted.tree.over2)
+matrix.over3<-table(test.hotel$is.cancelled,predicted.tree.over3)
+```
+
+```{r}
+sum(diag(matrix.over1))/nrow(test.hotel)
+sum(diag(matrix.over2))/nrow(test.hotel)
+sum(diag(matrix.over3))/nrow(test.hotel)
+```
+
+## undersampling
+
+```{r}
+set.seed(121)
+tree.under1<-rpart(is.cancelled~.,method='class',data=under.data,parms=list(split='information'))
+tree.under2<-rpart(is.cancelled~.,method='class',data=under.data,parms=list(split='information'),cp=-1)
+printcp(tree.under2)
+tree.under3<-rpart(is.cancelled~.,method='class',data=under.data,parms=list(split='information'),cp=0.000360)
+```
+## prediction
+
+```{r}
+predicted.tree.under1<-predict(tree.under1,test.hotel.new,type="class")
+predicted.tree.under2<-predict(tree.under2,test.hotel.new,type="class")
+predicted.tree.under3<-predict(tree.under3,test.hotel.new,type="class")
+matrix.under1<-table(test.hotel$is.cancelled,predicted.tree.under1)
+matrix.under2<-table(test.hotel$is.cancelled,predicted.tree.under2)
+matrix.under3<-table(test.hotel$is.cancelled,predicted.tree.under3)
+```
+##accuracy
+```{r}
+sum(diag(matrix.under1))/nrow(test.hotel)
+sum(diag(matrix.under2))/nrow(test.hotel)
+sum(diag(matrix.under3))/nrow(test.hotel)
+```
+
+## imbalanced dataset gave accuracy of 80.7%
+## After balancing ,under sampling gave better accuracy of approx 77.3% 

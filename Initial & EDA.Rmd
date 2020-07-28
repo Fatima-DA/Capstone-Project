@@ -1,0 +1,286 @@
+---
+title: "Capstone initial analysis"
+author: "Fatima "
+date: "July 2020"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+
+
+#install.packages('dplyr')
+#library(dplyr)
+#install.packages('ggplot2')
+#library(ggplot2)
+
+```{r}
+library(ggplot2)
+library(dplyr)
+data.hotel.booking <- read.csv("C:/Users/fatim/Downloads/capstone initial results/hotel_bookings.csv",stringsAsFactors = FALSE)
+head(data.hotel.booking)
+```
+
+## checking dimensions of the dataframe
+```{r}
+dim(data.hotel.booking)
+```
+
+## Extracting only Resort Hotel observations
+
+```{r}
+df <- filter(data.hotel.booking,hotel=="Resort Hotel")
+dim(df)
+```
+
+## Exploring dataset 
+```{r}
+str(df)
+```
+
+```{r}
+## dropping hotel column as it is redundant
+## creation a new column is.cancelled which is same as is_canceled and then dropping is_canceled
+## renaming some coulumns
+## changing data type is_cancelled
+```
+
+
+```{r}
+df$is.cancelled <- as.factor(df$is_canceled)
+df<-df %>% rename(lead.time=lead_time,arrival.year = arrival_date_year,arrival.month=arrival_date_month,arrival.week.of.year=arrival_date_week_number,arrival.day.of.month=arrival_date_day_of_month,total.weekend.nights=stays_in_weekend_nights,total.week.nights=stays_in_week_nights,market.segment=market_segment,distribution.channel=distribution_channel,repeated.guest=is_repeated_guest,)
+df <- df %>% rename(no.of.previous.cancelled=previous_cancellations,no.of.previous.not.cancelled=previous_bookings_not_canceled,reserved.room.type=reserved_room_type,assigned.room.type=assigned_room_type,no.of.booking.changes=booking_changes,deposit.type=deposit_type,days.waiting.list=days_in_waiting_list,customer.type=customer_type,required.car.spaces=required_car_parking_spaces,no.of.special.requests=total_of_special_requests,last.reservation.status=reservation_status,last.reservation.status.date=reservation_status_date)
+colnames(df)
+```
+
+
+```{r}
+df<-df[-c(1,2)] #dropping columns hotel and is_canceled 
+
+```
+
+## assigning appropriate data type
+```{r}
+df <- transform(df,arrival.year = factor(arrival.year),arrival.month = factor(arrival.month),meal =factor(meal),market.segment = factor(market.segment),distribution.channel = factor(distribution.channel),repeated.guest = factor(repeated.guest),reserved.room.type =factor(reserved.room.type),assigned.room.type=factor(assigned.room.type),deposit.type =factor(deposit.type ),customer.type = factor(customer.type),last.reservation.status = factor(last.reservation.status))
+
+df$last.reservation.status.date <- as.Date(df$last.reservation.status.date)
+
+```
+
+```{r}
+head(df)
+```
+
+```{r}
+str(df)
+```
+## summary
+```{r}
+summary(df)
+```
+
+## checking null values for character variables
+```{r}
+sapply(df[c('country','agent','company')],table)
+```
+
+
+```{r}
+## dropping company as it has 36952 null values
+
+df <- subset(df,select=-c(company))
+```
+
+
+```{r}
+## checking distinct values
+## checking for missing values
+
+
+nrow((df))
+nrow(distinct(df))
+sum(is.na(df))
+
+```
+## There are no missing values
+```{r}
+df<-distinct(df) #removing duplicate rows
+```
+
+ 
+```{r}
+
+## checking for rows with lead time = 0 
+## less than 5% are cancelled  booking 
+
+lead.time.zero <- filter(df,lead.time ==0)
+nrow(lead.time.zero)
+print(ggplot(lead.time.zero,aes(x=lead.time))+geom_bar(aes(fill=is.cancelled),position="fill"))# gives percentage
+```
+
+
+
+```{r}
+## checking for adr < 0 
+## only one observation is less than zero
+##removing that observation
+
+
+adr.negative <- filter(df,adr<0)
+nrow(adr.negative)
+df <- filter(df,adr>=0)
+```
+
+```{r}
+
+## checking for adults ==0
+## there are 12 observations with adults ==0
+## Removing those observations
+
+
+nrow(filter(df,adults==0))
+df<-filter(df,adults!=0)
+```
+
+```{r}
+## boxplot for numeric variable to check for outliers
+## All numeric variables have outliers except arrival week of year and arrival day of month
+```
+
+
+```{r}
+
+boxplot(df$adults,df$children,df$babies,df$total.weekend.nights,df$total.week.nights,at=c(1,2,3,6,8),names = c("adults","children","babies"," weekend nights","week nights"),ylab="count",col=c('pink'),horizontal = FALSE)
+boxplot(df$lead.time,df$adr,at=c(4,5),names =c("lead.time","average daily rate") ,col="pink",ylab="count",horizontal = FALSE)
+
+
+boxplot(df$no.of.booking.changes,df$required.car.spaces,df$no.of.special.requests,   at=c(2,5,7),names =c("booking changes","car spaces requested","No.of special requests") ,col="pink",ylab="count",horizontal = FALSE)
+
+boxplot(df$arrival.week.of.year ,df$arrival.day.of.month ,   at=c(4,6),names =c("arrival.week.of.year", "arrival.day.of.month") ,col="pink",ylab="count",horizontal = FALSE)
+
+boxplot(df$ no.of.previous.cancelled  ,df$no.of.previous.not.cancelled ,   at=c(4,6),names =c("no.of.previous.cancelled  ", "no.of.previous.not.cancelled ") ,col="pink",ylab="count",horizontal = FALSE)
+
+boxplot(df$ days.waiting.list ,xlab="Days in waiting list",col="pink",ylab="count",horizontal = FALSE)
+
+
+```
+##EDA
+```{r}
+##EDA
+## interpreting graphs
+## maximum number of people did not ask for car spaces
+## adr zero means may be a kind of promotional services
+## there does not seem to be any relation with no of booking changes and cancellation because mostly there is no booking change
+## car space also does not look to be a reason for cancellation because most of the guests have not requested for car space and those requested have not cancelled the booking
+```
+
+```{r}
+print(ggplot(df,aes(x=is.cancelled))+geom_bar())
+print(ggplot(df,aes(x= lead.time))+geom_histogram(aes(color=is.cancelled),binwidth =10))
+print(ggplot(df,aes(x= factor(required.car.spaces)))+geom_bar(aes(fill=is.cancelled)))
+print(ggplot(df,aes(x= factor(no.of.booking.changes)))+geom_bar(aes(fill=is.cancelled)))
+print(ggplot(df,aes(x= factor(no.of.special.requests) ))+geom_bar(aes(fill=is.cancelled)))
+```
+ 
+```{r}
+# analysing lead time
+## as lead time decreases no of booking cancelled increases may be due to cancellation policy 
+
+
+l<-df%>% group_by(lead.time,is.cancelled)%>%summarise(l.count=n())
+l1<-filter(l,is.cancelled==1)
+plot(l1$lead.time,l1$l.count,xlab='lead time of cancelled booking',ylab= 'count')
+```
+
+```{r}
+## there is no special preference for any particular day of month 
+
+## maximum cancellation are around 29th to 35th weeks which make sense because bookings are also maximum at that time which is around july and august and is the vacation time so there migt be more options in the market and also the data is from 1st July 2015 to 31st Aug 2017
+
+## guests that book for 5 weeknights tend to cancel more as compared to other number of weeknights
+## number of previous cancellations doesn't seem to effect booking cancellation 
+```
+
+```{r}
+print(ggplot(df,aes(x= arrival.week.of.year ))+geom_histogram(aes(color=is.cancelled),binwidth =1))
+
+print(ggplot(df,aes(x= factor(arrival.day.of.month)))+geom_bar(aes(fill=is.cancelled),position='dodge'))
+print(ggplot(df,aes(x= factor(total.weekend.nights)))+geom_bar(aes(fill=is.cancelled),position='dodge'))
+print(ggplot(df,aes(x= factor(total.week.nights)))+geom_bar(aes(fill=is.cancelled),position='dodge'))
+print(ggplot(df,aes(x= factor(children)))+geom_bar(aes(fill=is.cancelled)))
+print(ggplot(df,aes(x= factor(babies)))+geom_bar(aes(fill=is.cancelled)))
+print(ggplot(df,aes(x= factor(no.of.previous.cancelled)))+geom_bar(aes(fill=is.cancelled)))
+
+```
+
+
+```{r}
+## guests mostly chose BB meal
+## most popular market segment is online TA and cancellations are also maximum with online TA
+
+
+
+fact.var<-df %>% Filter(f=is.factor) %>% colnames()
+fact.plot<-function(column){
+    ggplot(df,aes_string(column))+geom_bar(aes(fill=is.cancelled))
+}
+lapply(fact.var,fact.plot)
+```
+
+
+```{r}
+
+## last.reservation.date from 1st july 2015 to 31st aug 2017
+
+t=filter(df,last.reservation.status.date<"2017-09-01" & last.reservation.status.date>"2015-06-30" )
+t2<-t%>% group_by(last.reservation.status.date)%>%summarise(t1.count=n())
+print(ggplot(t2,aes(last.reservation.status.date,t1.count))+geom_line())
+
+```
+
+
+```{r}
+## selecting only numeric variables
+
+num.vars <-sapply(df,is.numeric)
+data.num<-df[,num.vars]
+
+```
+## printing histogram of all numeric variables
+```{r}
+for( i in names(data.num)){
+  hist(data.num[,i],main="histogram ",xlab= i)
+}
+```
+
+
+```{r}
+## transient type of customers cancelled the booking even when it was non refundable,makes sense because transient travellers are often short duration (and sometimes urgent)
+
+qplot(no.of.booking.changes,lead.time,data=df,shape=is.cancelled,color=is.cancelled,facets=customer.type~deposit.type,size=I(3),xlab="Num of booking changes",ylab="lead time")
+
+```
+
+
+```{r}
+print(ggplot(df,aes(x=assigned.room.type,y=adr))+geom_boxplot(color="red"))
+print(ggplot(df,aes(x=reserved.room.type,y=adr))+geom_boxplot(color="blue"))
+
+
+# room type H has the highest median of adr whereas I has the least median of adr in assigned room type
+## there is no room I in reserved type and A has the lowest median of adr whereas H has the highest
+
+```
+
+```{r}
+## visualising agent,country
+pie(table(df$agent),main = "agent",radius=1)
+pie(table(df$country),main="country",radius=1)
+```
+
+```{r}
+
+#df.copy<-write.csv(df,"C:/Users/fatim/Downloads/capstone initial results/df.csv")
+```
+

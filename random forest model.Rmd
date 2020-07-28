@@ -1,0 +1,99 @@
+---
+title: "machine learning"
+author: "fatima"
+date: "28/06/2020"
+output: html_document
+---
+
+
+
+##install.packages("caret")for evaluating data
+##install.packages("e1071")for confusion matrix
+```{r}
+library(caret)
+library(e1071)
+library(ROSE)
+library(randomForest)
+data.model <- read.csv("C:/Users/fatim/Downloads/capstone initial results/data.for.model.csv")
+str(data.model)
+```
+
+
+```{r}
+data.model<-data.model[-1]
+data.model$arrival.year<-as.factor(data.model$arrival.year)
+data.model$is.cancelled <-as.factor(data.model$is.cancelled )
+```
+
+
+## splitting dataset into training and testing
+```{r}
+set.seed(101)
+row.no.train<-sample(1:nrow(data.model),nrow(data.model)*0.8)
+train.hotel<-data.model[row.no.train,]
+test.hotel<-data.model[-row.no.train,]
+```
+
+
+#removing target variable from test data
+
+```{r}
+test.hotel.new<-test.hotel[-8]
+```
+
+## random forest
+```{r}
+model.rf.tree<-randomForest(is.cancelled ~ .,data=train.hotel)
+predict.rf<-predict(model.rf.tree,test.hotel.new)
+table(predict.rf,test.hotel$is.cancelled)
+```
+
+```{r}
+confusionMatrix(predict.rf,test.hotel$is.cancelled,positive="1")
+```
+
+
+## balancing dataset(only training set)
+
+```{r}
+table(train.hotel$is.cancelled)
+prop.table(table(train.hotel$is.cancelled)) ## checking proprotion of levels of is.cancelled
+```
+
+
+## oversampling
+```{r}
+over.data<- ovun.sample(is.cancelled~.,data=train.hotel,method="over",N=40730)$data
+table(over.data$is.cancelled)
+
+```
+
+## building model
+
+```{r}
+model.rf.over.balanced<-randomForest(is.cancelled ~ .,data=over.data)
+confusionMatrix(predict(model.rf.over.balanced,test.hotel.new),test.hotel$is.cancelled,positive="1")
+```
+## undersampling
+```{r}
+under.data<-ovun.sample(is.cancelled~.,data=train.hotel,method="under",N=13304)$data
+table(under.data$is.cancelled)
+```
+## model with undersampling
+```{r}
+model.rf.under.balanced<-randomForest(is.cancelled ~ .,data=under.data)
+confusionMatrix(predict(model.rf.under.balanced,test.hotel.new),test.hotel$is.cancelled,positive="1")
+```
+## over and under both
+```{r}
+both.data<-ovun.sample(is.cancelled~.,data=train.hotel,method="both",seed=123,N=26608)$data
+table(both.data$is.cancelled)
+```
+
+```{r}
+model.rf.both.balanced<-randomForest(is.cancelled ~ .,data=both.data)
+confusionMatrix(predict(model.rf.both.balanced,test.hotel.new),test.hotel$is.cancelled,positive="1")
+```
+
+## Random forest with imbalanced dataset-> accuracy is 82.44%
+## After oversampling -> accuracy is 79.9%

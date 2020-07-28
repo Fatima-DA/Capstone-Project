@@ -1,0 +1,482 @@
+---
+title: "EDA contd"
+author: "fatima"
+date: "July 2020"
+output: html_document
+---
+
+
+```{r}
+library(gridExtra)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+
+
+data <- read.csv("C:/Users/fatim/Downloads/capstone initial results/df.csv",stringsAsFactors = TRUE)
+str(data)
+```
+
+## dropping first column i.e index column
+
+
+```{r}
+data<-data[-1]
+data<-transform(data,arrival.year = factor(arrival.year),repeated.guest = factor(repeated.guest),    is.cancelled = factor(is.cancelled))
+data$last.reservation.status.date <- as.Date(data$last.reservation.status.date,format=)
+data$country <- as.character(data$country)
+data$agent <- as.character(data$agent)
+```
+
+
+
+```{r}
+
+## ordering arrival.month variable
+
+data$arrival.month<- factor(data$arrival.month,levels=month.name)
+
+```
+
+
+```{r}
+## creating column total nights and total guests 
+
+data<-mutate(data,total.nights=total.weekend.nights+total.week.nights)
+data<-mutate(data,total.guests=adults+children+babies)
+```
+
+
+## filtering each year data
+```{r}
+data.2015 <-filter(data,arrival.year==2015)
+data.2016<-filter(data,arrival.year==2016)
+data.2017<-filter(data,arrival.year==2017)
+
+```
+
+
+
+```{r}
+
+## to see which month has highest nights booking in 2015,2016,2017
+## for three years busiest months are July and august but cancellations have increased in year 2017
+
+
+p1<-data.2015 %>% group_by(arrival.month,is.cancelled) %>% summarise(total_nights = sum(total.nights)) %>% 
+ggplot(aes(x = arrival.month, y = total_nights, fill = is.cancelled)) +
+geom_bar(stat = "identity",position='dodge',width=0.5) +labs( x = "Month", y = "total nights",title = ("Total nights booked in 2015")  )
+
+
+## for 2016
+p2<-data.2016 %>% group_by(arrival.month,is.cancelled) %>% summarise(total_nights = sum(total.nights)) %>% 
+ggplot(aes(x = arrival.month, y = total_nights, fill = is.cancelled)) +
+  geom_bar(stat = "identity",position='dodge',width=0.5) +theme(axis.text.x = element_text(angle = 45,hjust = 1,vjust = 0.5))+
+labs(x = "Month",y = "total nights",title = ("Total nights booked in 2016")  )
+
+## for 2017
+p3<-data.2017 %>% group_by(arrival.month,is.cancelled) %>% summarise(total_nights = sum(total.nights)) %>% 
+ggplot(aes(x = arrival.month, y = total_nights, fill = is.cancelled)) +
+  geom_bar(stat = "identity",position='dodge',width=0.5) +
+labs(x = "Month",y = "total nights",title = ("Total nights booked in 2017")  )
+
+grid.arrange(p1, p2,p3 ,nrow=3,heights=c(0.6,0.75,0.6))
+
+```
+
+
+```{r}
+## guest with family or adult only
+## less bookings are with families- only 3869
+
+only.family.kids<-filter(data,total.guests > adults)
+with.no.kids<-filter(data,total.guests==adults)
+nrow(only.family.kids)
+nrow(with.no.kids)
+```
+
+
+```{r}
+## guests with family mainly visit during july and august and they tend to cancel more as compared to adults only guests
+
+
+b<-only.family.kids %>% group_by(arrival.month,is.cancelled) %>% summarise(total_nights = sum(total.nights))
+plot1<-ggplot(b,aes(x = arrival.month, y = total_nights, fill = is.cancelled)) +
+               geom_bar(stat = "identity",position='dodge',width=0.5) +
+                  theme(axis.text.x = element_text(angle = 45,hjust = 1,vjust = 0.5))+
+                   labs(x = "Month",y = "total nights",title = ("Total nights booked by guest with family ")  )
+
+d<-with.no.kids %>% group_by(arrival.month,is.cancelled) %>% summarise(total_nights = sum(total.nights))
+plot2<-ggplot(d,aes(x = arrival.month, y = total_nights, fill = is.cancelled)) +
+    geom_bar(stat = "identity",position='dodge',width=0.5) +
+      theme(axis.text.x = element_text(angle = 45,hjust = 1,vjust = 0.5))+
+        labs(x = "Month",y = "total nights",title = ("Total nights booked by guest with no kids ") ) 
+
+grid.arrange(plot1, plot2, nrow=2,heights=c(0.6,0.6))
+```
+
+
+
+```{r}
+## visualising above
+## guests with families cancel more if total guest are 4(almost 50% chance)
+## guests with adults only cancel ratio is approx 1/5
+## guests with family cancel ratio is approx 1/3
+
+
+plot1<-ggplot(only.family.kids,aes(x= factor(total.guests)))+geom_bar(aes(fill=is.cancelled))
+plot2<-ggplot(with.no.kids,aes(x= factor(adults)))+geom_bar(aes(fill=is.cancelled))
+grid.arrange(plot1, plot2, ncol=2)
+
+```
+
+
+```{r}
+
+## looking whether change in room type result in cancellation
+## 7006 observations have different assigned room than what they reserved
+##  change in room type did not have any  effect on cancellation
+
+
+roomtype.diff<-filter(data,as.character(assigned.room.type) != as.character(reserved.room.type))
+roomtype.same<-filter(data,as.character(assigned.room.type) == as.character(reserved.room.type))
+prop.table(table(roomtype.diff$is.cancelled))
+prop.table(table(roomtype.same$is.cancelled))
+```
+
+```{r}
+## creating colum to find percentage of people coming from different countries
+## PRT has approx. 43% of total booking
+
+
+country.data<-data %>% group_by(country) %>% summarise(country.count = n())
+country.data<-mutate(country.data,country.percent=(country.count/sum(country.count))*100)
+country.greater.2percent<-filter(country.data,country.percent>2)
+
+
+```
+
+
+## top three countries are PRT,GBR,ESP
+```{r}
+ggplot(country.greater.2percent, aes(x = "", y =country.percent, fill = country)) +
+  geom_col(width = 1,color = "white") +
+  coord_polar("y", start = 0)+
+   ggtitle("percentage of Country greater than 2%")+
+  theme_void()
+
+```
+## replacing null with PRT
+## 1/3 of PRT booking was cancelled
+```{r}
+data$country<-replace(data$country,data$country=='NULL','PRT')
+country.data.new<-data %>% group_by(country,is.cancelled) %>% summarise(country.count = n())
+country.data.top3<-filter(country.data.new,country=="PRT" | country=="ESP"|country=="GBR")
+qplot(country,country.count,data=country.data.top3,shape=is.cancelled,color=is.cancelled,size=country.count)
+
+```
+
+## grouping country variable
+```{r}
+group_country<-function(countryname){
+  
+  if(countryname =='PRT'){
+    return('High Frequency')
+  }else if(countryname == "ESP" | countryname=="GBR"){
+    return('Medium Frequency')
+  }else{
+    return('Low Frequency')
+  }
+}
+
+```
+## grouping country and creating new column of grouped data
+```{r}
+data$grp.country<-sapply(data$country,group_country)
+data$grp.country<-factor(data$grp.country)
+levels(data$grp.country)
+
+```
+
+```{r}
+## changing levels so that they are in order
+
+data$grp.country<-factor(data$grp.country,levels=c("High Frequency","Medium Frequency","Low Frequency"))
+levels(data$grp.country)
+table(data$grp.country)
+```
+
+```{r}
+## extracting only year from last.reservation.status.date variable
+last.res.date.year<-substring(as.character(data$last.reservation.status.date),1,4)## extracting only year
+last.res.date.year<-factor(last.res.date.year)
+data$last.reservation.status.year<-last.res.date.year
+
+```
+
+
+
+
+##finding variance of numeric variables
+```{r}
+only.num<-data %>% Filter(f=is.numeric) %>% colnames()
+v1<-round(sapply(data[only.num],var),2)%>%sort()
+v<- as.data.frame(v1)
+v
+```
+
+```{r}
+## creating a vector for numeric variables  with var>1.5)
+feature.model.numeric<-c("total.week.nights","total.nights","days.waiting.list","arrival.day.of.month","arrival.week.of.year","adr","lead.time")
+
+```
+
+
+```{r}
+## checking correlation for selected numeric variables,method used is spearman as data is not normal and has outliers
+
+d1<-cor(data[feature.model.numeric],method="spearman")
+corrplot(d1)
+
+```
+
+```{r}
+## keeping only one from total.nights or total.week.nights as both are highly correlated
+## removing total.week.nights as its variance is low compared to total.nights
+
+
+feature.model.numeric<-feature.model.numeric[-1]
+feature.model.numeric
+```
+
+## treatment of outliers of numeric variables by creating groups and then changing to factor
+## for lead.time
+```{r}
+group_lead.time<-function(time){
+  
+  if(time<20){
+    return('days elapsed <20')
+  }else if(time>=20 & time<100){
+    return('20>=days elapsed <100')
+  }else{
+    return('days elapsed >100')
+  }
+}
+
+
+```
+
+```{r}
+data$grp.lead.time<-sapply(data$lead.time,group_lead.time)
+data$grp.lead.time<-factor(data$grp.lead.time)
+levels(data$grp.lead.time)
+
+```
+
+```{r}
+data$grp.lead.time<-factor(data$grp.lead.time,
+                           levels=c("days elapsed <20","20>=days elapsed <100","days elapsed >100"))
+levels(data$grp.lead.time)
+
+table(data$grp.lead.time)
+```
+## treating outliers of adr by creating groups
+```{r}
+group_adr<-function(amt){
+  
+  if(amt<45){
+    return('very reasonable')
+  }else if(amt>=45& amt<65){
+    return('reasonable')
+  }else if(amt>=65& amt<95){
+    return('ok')
+  }else if(amt>=95& amt<155){
+    return('high')
+  }else{
+    return('pretty high')
+  }
+}
+```
+
+
+
+
+```{r}
+## removing records where adr=0 and total nights =0 for more generalised model
+
+data<-filter(data,adr!=0 &total.nights!=0)
+```
+
+```{r}
+data$grp.adr<-sapply(data$adr,group_adr)
+data$grp.adr<-factor(data$grp.adr)
+levels(data$grp.adr)
+
+```
+
+```{r}
+data$grp.adr<-factor(data$grp.adr,levels=c("very reasonable","reasonable","ok","high","pretty high"))
+levels(data$grp.adr)
+table(data$grp.adr)
+
+```
+
+
+## treating outliers of total.nights by creating groups
+
+```{r}
+group_nights<-function(num){
+  
+  if(num<3){
+    return('less than 3')
+  }else if(num>=3& num<6){
+    return('3 or more but less than 6')
+  }else{
+    return('6 or more')
+  }
+}
+
+data$grp.total.nights<-sapply(data$total.nights,group_nights)
+data$grp.total.nights<-factor(data$grp.total.nights)
+levels(data$grp.total.nights)
+
+```
+
+```{r}
+data$grp.total.nights<-factor(data$grp.total.nights,levels=c("less than 3","3 or more but less than 6","6 or more"))
+levels(data$grp.total.nights)
+table(data$grp.total.nights)
+
+```
+
+
+
+```{r}
+
+## replacing undefined  with SC in meal as both are same 
+## combining group customer type  to contract type
+## renaming level contract to other
+
+
+data$meal<-replace(data$meal,data$meal=='Undefined','SC')
+data$meal<-factor(data$meal,levels=c("BB","FB","HB","SC"))
+levels(data$customer.type)<-c("Contract","Contract","Transient","Transient-Party")
+levels(data$customer.type)[1]<-"Other"
+table(data$customer.type)
+```
+
+```{r}
+## combining no-show with canceled in last.reservation.status
+
+levels(data$last.reservation.status)<-c("Canceled","Check-Out","Canceled")
+
+table(data$last.reservation.status)
+```
+
+## Feature selection
+
+```{r}
+## removing numeric variables with var<1.5 
+## Also removing lead.time,adr,total.nights( will be using the grouped one of these variables)
+
+
+data.new<-data[-c(1,6,7,8,9,10,16,17,20,25,26,27,31,32)]
+```
+
+
+
+```{r}
+
+## normalising numeric variables
+
+
+fun<- function(x){
+  x<- (x-min(x))/(max(x)-min(x))
+  return(x)
+}
+new.numeric <-c("days.waiting.list","arrival.day.of.month","arrival.week.of.year")
+nor.data<-sapply(data.new[,new.numeric],fun)
+nor.data<-as.data.frame(nor.data)
+```
+
+```{r}
+## selecting factor variables
+
+only.fact<-data.new %>% Filter(f=is.factor) %>% colnames()
+only.fact
+```
+
+
+
+```{r}
+##removing country,agent and last.reservation.status.date
+
+data.new1<-data.new[-c(6,13,17)]
+```
+
+
+ 
+```{r}
+
+## changing factor to int to find correlation
+
+data.final.corr<-data.new1
+factor.final.names = data.final.corr %>% Filter(f=is.factor) %>% colnames()
+data.final.corr.copy<-data.final.corr
+data.final.corr.copy[,factor.final.names] = data.frame(sapply( data.final.corr.copy[,factor.final.names], as.integer))
+str(data.final.corr.copy)
+
+```
+ 
+## finding correlation
+ 
+```{r}
+d2<-cor(data.final.corr.copy,method="spearman")
+
+corrplot(d2,method = "color")
+```
+
+
+```{r}
+## based on  corrplot and bar plot of factor variables removing following variables because of correlation or because of less information
+##last.reservation.status.year,arrival.week.of.year,distribution.channel,assigned.room.type,
+## repeated guest,deposit.type,days.waiting.list
+
+```
+
+
+```{r}
+data.new1<-data.new1[-c(17,3,7,10,8,11,12)]
+colnames(data.new1)
+data.model1<-data.new1
+```
+
+
+```{r}
+## also removing last.reservation.status as it is almost similar to target variable
+
+data.model1<-data.model1[-8]
+
+```
+
+
+```{r}
+## from reserved.room.type removing level B and L as they have very few entries and it might be problem for machine learning because it might give zero frequency when partioning dataset
+
+
+xtabs(~reserved.room.type+is.cancelled,data.model1)
+data.model1<-filter(data.model1,reserved.room.type!="B" & reserved.room.type!="L")
+data.model1$reserved.room.type<-droplevels(data.model1$reserved.room.type)
+xtabs(~reserved.room.type+is.cancelled,data.model1)
+```
+
+```{r}
+
+#data.model.copy<-write.csv(data.model1,"C:/Users/fatim/Downloads/capstone initial results/data.for.model.csv")
+```
+
+
+
+
+
+
